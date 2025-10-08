@@ -55,7 +55,7 @@ export struct FilterBar {
     // clear any pending timer
     if (this.categorySyncTimer !== undefined) { clearTimeout(this.categorySyncTimer); }
     // after short delay clear local override so parent-controlled updates show through
-    this.categorySyncTimer = globalThis.setTimeout(() => {
+    this.categorySyncTimer = setTimeout(() => {
       this.localSelectedCategory = undefined;
       this.categorySyncTimer = undefined;
     }, 200);
@@ -176,9 +176,11 @@ export struct FilterBar {
       .fontSize(12)
       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
       .borderRadius(20)
-      .backgroundColor(active ? '#007AFF' : '#F9FAFB')
-      .fontColor(active ? '#FFFFFF' : '#1F2937')
+      // Match inactive appearance with other buttons and switch to blue when active
+      .backgroundColor(active ? '#007AFF' : '#F3F4F6')
+      .fontColor(active ? '#FFFFFF' : '#111827')
       .border({ width: 1, color: active ? '#007AFF' : '#E5E7EB' })
+      // subtle press-scale and animation for a consistent feel
       .scale({ x: (this.pressedLabel === label) ? 0.95 : 1, y: (this.pressedLabel === label) ? 0.95 : 1 })
       .animation({ duration: 150, curve: Curve.EaseInOut })
       .onTouch((event: TouchEvent) => {
@@ -208,9 +210,14 @@ export struct FilterBar {
   private expandButton(label: string, expanded: boolean, onClick: () => void) {
     Button(expanded ? `收起${label}` : `更多${label}`)
       .type(ButtonType.Capsule)
-      .fontSize(12)
-      .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-      .borderRadius(20)
+      // Match the visual footprint and touch target of the "仅显示收藏" button
+      .width('100%')
+      .fontSize(14)
+      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+      .borderRadius(16)
+      .backgroundColor('#F3F4F6')
+      .fontColor('#111827')
+      .border({ width: 1, color: '#E5E7EB' })
       .onClick(onClick);
   }
 
@@ -219,17 +226,18 @@ export struct FilterBar {
     Button(label)
       .type(ButtonType.Capsule)
       .fontSize(14)
-      .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-      .borderRadius(18)
+      // Use the same touch target and inactive appearance as the "仅显示收藏" button
+      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+      .borderRadius(16)
       .width('100%')
-      .backgroundColor(active ? '#007AFF' : '#FFFFFF')
+      .backgroundColor(active ? '#007AFF' : '#F3F4F6')
       .fontColor(active ? '#FFFFFF' : '#111827')
       .border({ width: 1, color: active ? '#007AFF' : '#E5E7EB' })
-      .onClick(onTap)
-      .scale({ x: (this.pressedLabel === label) ? 0.97 : 1, y: (this.pressedLabel === label) ? 0.97 : 1 })
-      .onTouch((event: TouchEvent) => {
-        if (event.type === TouchType.Down) { this.pressedLabel = label; }
-        if (event.type === TouchType.Up || event.type === TouchType.Cancel) { this.pressedLabel = ''; }
-      });
+       .onClick(onTap)
+       .scale({ x: (this.pressedLabel === label) ? 0.97 : 1, y: (this.pressedLabel === label) ? 0.97 : 1 })
+       .onTouch((event: TouchEvent) => {
+         if (event.type === TouchType.Down) { this.pressedLabel = label; }
+         if (event.type === TouchType.Up || event.type === TouchType.Cancel) { this.pressedLabel = ''; }
+       });
   }
 }

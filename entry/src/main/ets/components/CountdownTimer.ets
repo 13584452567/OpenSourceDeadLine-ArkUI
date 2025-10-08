@@ -1,3 +1,5 @@
+import { subscribeTick, unsubscribeTick } from '../common/CountdownClock';
+
 interface TimeLeft {
   days: number;
   hours: number;
@@ -9,8 +11,7 @@ interface TimeLeft {
 export struct CountdownTimer {
   @Prop deadline: string = '';
   @State timeLeft: TimeLeft | null = null;
-  private timerId: number | undefined = undefined; // setTimeout id
-  private active: boolean = false;
+  private tickId: number | undefined = undefined;
   private prevDeadline: string = '';
   private deadlineTs: number = 0;
 
@@ -45,49 +46,37 @@ export struct CountdownTimer {
         this.renderSlot(this.timeLeft.seconds, '秒');
       }
     }
+    .onAppear(() => { this.start(); })
+    .onDisAppear(() => { this.stop(); })
   }
 
   private start() {
-    this.stop(); // 确保无残留
+    // ensure we don't double-subscribe
+    this.stop();
     this.prevDeadline = this.deadline;
     this.deadlineTs = new Date(this.deadline).getTime();
-    this.active = true;
+    // compute initial value once
     this.updateTime();
-    this.scheduleNext();
+    // subscribe to shared 1s clock
+    this.tickId = subscribeTick(() => {
+      // if deadline prop changed externally, update timestamp
+      if (this.deadline !== this.prevDeadline) {
+        this.prevDeadline = this.deadline;
+        this.deadlineTs = new Date(this.deadline).getTime();
+      }
+      this.updateTime();
+      // if countdown finished, unsubscribe
+      if (!this.timeLeft) {
+        this.stop();
+      }
+    });
   }
 
   private stop() {
-    this.active = false;
-    if (this.timerId !== undefined) {
-      clearTimeout(this.timerId);
-      this.timerId = undefined;
+    if (this.tickId !== undefined) {
+      unsubscribeTick(this.tickId);
+      this.tickId = undefined;
     }
-  }
-
-  private scheduleNext() {
-    if (!this.active) {
-      return;
-    }
-    // 对齐到下一整秒，减少抖动
-    const now = Date.now();
-    const msToNext = 1000 - (now % 1000); // 0<ms<=1000
-    this.timerId = setTimeout((): void => {
-      // 如果 deadline 发生变化，重启
-      if (this.deadline !== this.prevDeadline) {
-        this.start();
-        return;
-      }
-      this.updateTime();
-      if (this.timeLeft) {
-        this.scheduleNext();
-      } else {
-        this.stop();
-      }
-    }, msToNext);
-  }
-
-  private tickAndSchedule() {
-    // no-op
   }
 
   @Builder

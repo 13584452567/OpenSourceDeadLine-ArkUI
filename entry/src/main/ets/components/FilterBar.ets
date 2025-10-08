@@ -14,27 +14,70 @@ export struct FilterBar {
   @Link showOnlyFavorites: boolean;
   @State private tagsExpanded: boolean = false;
   @State private locationsExpanded: boolean = false;
-  @State private showAdvanced: boolean = true;
   @State private pressedLabel: string = '';
+  @State private localSelectedCategory: string | null | undefined = undefined;
+  private categorySyncTimer: number | undefined = undefined;
 
-  // ==== Data helpers ====
+  // ==== Event Handlers ====
+  onClearAllFilters(): void {
+    this.searchQuery = '';
+    this.selectedCategory = null;
+    this.selectedTags = [];
+    this.selectedLocations = [];
+    this.showOnlyFavorites = false;
+    this.tagsExpanded = false;
+    this.locationsExpanded = false;
+    this.pressedLabel = '';
+    this.localSelectedCategory = undefined;
+    if (this.categorySyncTimer !== undefined) { clearTimeout(this.categorySyncTimer); this.categorySyncTimer = undefined; }
+  }
+
+  onToggleTag(tag: string): void {
+    const newTags = this.selectedTags.slice();
+    const idx = newTags.indexOf(tag);
+    if (idx !== -1) { newTags.splice(idx, 1); } else { newTags.push(tag); }
+    this.selectedTags = newTags;
+  }
+
+  onToggleLocation(location: string): void {
+    const newLocs = this.selectedLocations.slice();
+    const idx = newLocs.indexOf(location);
+    if (idx !== -1) { newLocs.splice(idx, 1); } else { newLocs.push(location); }
+    this.selectedLocations = newLocs;
+  }
+
+  onToggleCategory(category: string): void {
+    const newVal: string | null = this.selectedCategory === category ? null : category;
+    // update local first to trigger immediate UI change
+    this.localSelectedCategory = newVal;
+    // then sync to parent/link
+    this.selectedCategory = newVal;
+    // clear any pending timer
+    if (this.categorySyncTimer !== undefined) { clearTimeout(this.categorySyncTimer); }
+    // after short delay clear local override so parent-controlled updates show through
+    this.categorySyncTimer = globalThis.setTimeout(() => {
+      this.localSelectedCategory = undefined;
+      this.categorySyncTimer = undefined;
+    }, 200);
+  }
+
+  private isCategoryActive(category: string): boolean {
+    if (this.localSelectedCategory !== undefined) {
+      return this.localSelectedCategory === category;
+    }
+    return this.selectedCategory === category;
+  }
+
   private getCategoryDisplay(category: string): string {
-    if (category === 'conference') { return '会议'; }
-    if (category === 'competition') { return '竞赛'; }
-    if (category === 'activity') { return '活动'; }
+    if (category === 'conference') return '会议';
+    if (category === 'competition') return '竞赛';
+    if (category === 'activity') return '活动';
     return category;
-  }
-  private getCategoryLabel(category: string): string {
-    return `${this.getCategoryDisplay(category)}(${this.getCategoryCount(category)})`;
-  }
-  private getCategoryCount(category: string): number {
-    return this.items.filter(item => item.category === category).length;
   }
 
   private getAllTags(): Array<string> {
     return Array.from(new Set(this.items.flatMap(item => item.tags))).sort();
   }
-
   private getAllLocations(): Array<string> {
     return Array.from(new Set(this.items.flatMap(item => item.events.map(e => e.place)))).sort();
   }
@@ -49,122 +92,94 @@ export struct FilterBar {
     return this.locationsExpanded ? locs : locs.slice(0, LOCATION_PREVIEW_COUNT);
   }
 
-  // ==== UI build ====
   build() {
     Column({ space: 12 }) {
       // 搜索框
       Row() {
         TextInput({ placeholder: '搜索活动...' })
           .layoutWeight(1)
-          .onChange((value) => {
-            this.searchQuery = value;
-          })
+          .onChange((v) => { this.searchQuery = v; });
       }
       .padding(12)
       .borderRadius(12)
       .backgroundColor(Color.White)
       .width('100%')
 
-      // 地点筛选
+      // 收藏和清除
       Column() {
-        Row() {
-          Column() {
-            Text('地点')
-              .fontSize(14)
-              .fontWeight(500)
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
+        // 全宽收藏开关按钮
+        Button(this.showOnlyFavorites ? '仅显示收藏（已启用）' : '只显示收藏')
+          .type(ButtonType.Capsule)
+          .width('100%')
+          .fontSize(14)
+          .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+          .borderRadius(16)
+          .backgroundColor(this.showOnlyFavorites ? '#007AFF' : '#F3F4F6')
+          .fontColor(this.showOnlyFavorites ? '#FFFFFF' : '#111827')
+          .border({ width: 1, color: this.showOnlyFavorites ? '#007AFF' : '#E5E7EB' })
+          .onClick(() => { this.showOnlyFavorites = !this.showOnlyFavorites; });
 
-          this.expandButton(this.locationsExpanded, () => this.locationsExpanded = !this.locationsExpanded)
-        }
-        .padding({ top: 12, bottom: 12 })
-        .width('100%')
-
-        if (this.locationsExpanded) {
-          Divider().color('#F0F0F0').width('100%')
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Start }) {
-            ForEach(this.getVisibleLocations(), (location: string) => {
-              this.chip(location, this.selectedLocations.includes(location), (): void => this.toggleLocation(location))
-            }, (location: string) => location)
+        // 清除全部按钮位于收藏按钮下方，只有在有筛选激活时显示
+        if (this.isAnyFilterActive) {
+          Row() {
+            Blank().layoutWeight(1)
+            this.clearAllButton(() => this.onClearAllFilters())
           }
           .width('100%')
-          .padding(12)
+          .padding({ top: 8 })
         }
       }
-      .padding({ left: 16, right: 16 })
-      .borderRadius(12)
-      .backgroundColor(Color.White)
-      .width('100%')
-      .animation({ duration: 200 })
 
-      // 标签筛选
-      Column() {
-        Row() {
+      // 分类
+      Flex({ justifyContent: FlexAlign.Start }) {
+        ForEach(CATEGORIES, (cat: string) => {
           Column() {
-            Text('标签')
-              .fontSize(14)
-              .fontWeight(500)
+            this.categoryButton(this.getCategoryDisplay(cat), this.isCategoryActive(cat), (): void => this.onToggleCategory(cat))
           }
-          .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
+        }, (cat: string) => cat)
+      }
 
-          this.expandButton(this.tagsExpanded, () => this.tagsExpanded = !this.tagsExpanded)
+      // 地点
+      Column() {
+        this.expandButton('地点', this.locationsExpanded, () => this.locationsExpanded = !this.locationsExpanded);
+        if (this.locationsExpanded) {
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
+            ForEach(this.getVisibleLocations(), (loc: string) => {
+              this.chip(loc, this.selectedLocations.includes(loc), () => this.onToggleLocation(loc));
+            }, (loc: string) => loc)
+          }
         }
-        .padding({ top: 12, bottom: 12 })
-        .width('100%')
+      }
 
+      // 标签
+      Column() {
+        this.expandButton('标签', this.tagsExpanded, () => this.tagsExpanded = !this.tagsExpanded);
         if (this.tagsExpanded) {
-          Divider().color('#F0F0F0').width('100%')
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Start }) {
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
             ForEach(this.getVisibleTags(), (tag: string) => {
-              this.chip(tag, this.selectedTags.includes(tag), (): void => this.toggleTag(tag))
+              this.chip(tag, this.selectedTags.includes(tag), () => this.onToggleTag(tag));
             }, (tag: string) => tag)
           }
-          .width('100%')
-          .padding(12)
         }
       }
-      .padding({ left: 16, right: 16 })
-      .borderRadius(12)
-      .backgroundColor(Color.White)
-      .width('100%')
-      .animation({ duration: 200 })
-    }
-    .padding(16)
-    .backgroundColor('#F7F7F7')
-  }
-
-  // ==== Helpers ====
-  private toggleTag(tag: string): void {
-    this.toggleValue(this.selectedTags, tag);
-  }
-
-  private toggleLocation(location: string): void {
-    this.toggleValue(this.selectedLocations, location);
-  }
-
-  private toggleValue(target: Array<string>, value: string) {
-    const idx = target.indexOf(value);
-    if (idx !== -1) {
-      target.splice(idx, 1);
-    } else {
-      target.push(value);
     }
   }
 
-  // ==== Reusable UI Builders ====
+  private get isAnyFilterActive(): boolean {
+    return this.searchQuery !== '' || this.selectedCategory !== null || this.selectedTags.length > 0 || this.selectedLocations.length > 0 || this.showOnlyFavorites;
+  }
+
   @Builder
   private chip(label: string, active: boolean, onTap: () => void) {
     Button(label)
       .type(ButtonType.Capsule)
+      .fontSize(12)
+      .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+      .borderRadius(20)
       .backgroundColor(active ? '#007AFF' : '#F9FAFB')
       .fontColor(active ? '#FFFFFF' : '#1F2937')
-      .fontWeight(active ? FontWeight.Medium : FontWeight.Normal)
       .border({ width: 1, color: active ? '#007AFF' : '#E5E7EB' })
-      .borderRadius(20)
-      .margin({ right: 8, bottom: 8 })
-      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
       .scale({ x: (this.pressedLabel === label) ? 0.95 : 1, y: (this.pressedLabel === label) ? 0.95 : 1 })
       .animation({ duration: 150, curve: Curve.EaseInOut })
       .onTouch((event: TouchEvent) => {
@@ -175,42 +190,7 @@ export struct FilterBar {
           this.pressedLabel = '';
         }
       })
-      .onClick(onTap)
-  }
-
-  @Builder
-  private clearButton(onClick: () => void) {
-    Button('清除')
-      .type(ButtonType.Capsule)
-      .fontSize(11)
-      .backgroundColor('#F3F4F6')
-      .fontColor('#374151')
-      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-      .onClick(onClick)
-  }
-
-  @Builder
-  private expandButton(isExpanded: boolean, onClick: () => void) {
-    Button(isExpanded ? '收起' : '更多')
-      .type(ButtonType.Capsule)
-      .fontSize(12)
-      .backgroundColor('#FFFFFF')
-      .fontColor('#374151')
-      .border({ width: 1, color: '#E5E7EB' })
-      .borderRadius(16)
-      .padding({ left: 12, right: 12, top: 4, bottom: 4 })
-      .onClick(onClick)
-  }
-
-  @Builder
-  private summaryBadge(label: string) {
-    Text(label)
-      .fontSize(12)
-      .fontColor('#4B5563')
-      .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-      .backgroundColor('#F3F4F6')
-      .borderRadius(16)
-      .margin({ right: 8, bottom: 8 })
+      .onClick(onTap);
   }
 
   @Builder
@@ -218,10 +198,39 @@ export struct FilterBar {
     Button('清除全部')
       .type(ButtonType.Capsule)
       .fontSize(12)
+      .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+      .borderRadius(20)
       .backgroundColor('#FEE2E2')
       .fontColor('#B91C1C')
-      .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-      .margin({ right: 8, bottom: 8 })
-      .onClick(onClick)
+      .onClick(onClick);
+  }
+
+  @Builder
+  private expandButton(label: string, expanded: boolean, onClick: () => void) {
+    Button(expanded ? `收起${label}` : `更多${label}`)
+      .type(ButtonType.Capsule)
+      .fontSize(12)
+      .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+      .borderRadius(20)
+      .onClick(onClick);
+  }
+
+  @Builder
+  private categoryButton(label: string, active: boolean, onTap: () => void) {
+    Button(label)
+      .type(ButtonType.Capsule)
+      .fontSize(14)
+      .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+      .borderRadius(18)
+      .width('100%')
+      .backgroundColor(active ? '#007AFF' : '#FFFFFF')
+      .fontColor(active ? '#FFFFFF' : '#111827')
+      .border({ width: 1, color: active ? '#007AFF' : '#E5E7EB' })
+      .onClick(onTap)
+      .scale({ x: (this.pressedLabel === label) ? 0.97 : 1, y: (this.pressedLabel === label) ? 0.97 : 1 })
+      .onTouch((event: TouchEvent) => {
+        if (event.type === TouchType.Down) { this.pressedLabel = label; }
+        if (event.type === TouchType.Up || event.type === TouchType.Cancel) { this.pressedLabel = ''; }
+      });
   }
 }

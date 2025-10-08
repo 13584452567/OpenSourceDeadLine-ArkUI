@@ -51,192 +51,99 @@ export struct FilterBar {
 
   // ==== UI build ====
   build() {
-    Column({ space: 16 }) {
+    Column({ space: 12 }) {
       // 搜索框
-      TextInput({ placeholder: '搜索活动、标签或地点…', text: this.searchQuery })
-        .onChange((v: string): void => {
-          this.searchQuery = v;
-        })
-        .placeholderColor('#9CA3AF')
-        .backgroundColor('#F3F4F6')
-        .borderRadius(24)
-        .padding({ left: 20, right: 16, top: 10, bottom: 10 })
-
-
-      // 收藏 + 折叠开关
-      Row({ space: 12 }) {
-        Row({ space: 8 }) {
-          Toggle({ type: ToggleType.Switch, isOn: this.showOnlyFavorites })
-            .onChange((on: boolean): void => {
-              this.showOnlyFavorites = on;
-            })
-          Text('只显示收藏')
-            .fontSize(14)
-            .fontColor('#4B5563')
-        }
-        .alignItems(VerticalAlign.Center)
-
-        Blank() // Pushes the button to the right
-
-        Button() {
-          Row({ space: 6 }) {
-            Text(this.showAdvanced ? '收起' : '筛选')
-            Image(this.showAdvanced ? $r('app.media.arrow_up') : $r('app.media.arrow_down'))
-              .width(12)
-              .height(12)
-              .fillColor('#374151')
-          }
-        }
-        .type(ButtonType.Normal)
-        .fontSize(12)
-        .fontColor('#374151')
-        .backgroundColor('#F3F4F6')
-        .borderRadius(18)
-        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-        .onClick((): void => {
-          this.showAdvanced = !this.showAdvanced;
-        })
+      Row() {
+        TextInput({ placeholder: '搜索活动...' })
+          .layoutWeight(1)
+          .onChange((value) => {
+            this.searchQuery = value;
+          })
       }
+      .padding(12)
+      .borderRadius(12)
+      .backgroundColor(Color.White)
       .width('100%')
-      .alignItems(VerticalAlign.Center)
 
-      // 类别块
-      if (this.showAdvanced) {
-        Column({ space: 8 }) {
-          Row({ space: 8 }) {
-            Text('类别')
+      // 地点筛选
+      Column() {
+        Row() {
+          Column() {
+            Text('地点')
               .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-            if (this.selectedCategory !== null) {
-              this.clearButton(() => this.selectedCategory = null)
-            }
+              .fontWeight(500)
           }
-          .alignItems(VerticalAlign.Center)
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
 
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-            this.chip('全部', this.selectedCategory === null, () => {
-              this.selectedCategory = null;
-            });
-            ForEach(CATEGORIES, (c: string) => {
-              this.chip(this.getCategoryLabel(c), this.selectedCategory === c, () => {
-                this.selectedCategory = c;
-              });
-            }, (c: string) => c);
-          }
+          this.expandButton(this.locationsExpanded, () => this.locationsExpanded = !this.locationsExpanded)
         }
+        .padding({ top: 12, bottom: 12 })
+        .width('100%')
 
-        // 地点
-        if (this.getAllLocations().length > 0) {
-          Column({ space: 8 }) {
-            Row({ space: 8 }) {
-              Text(`地点 (${this.selectedLocations.length}/${this.getAllLocations().length})`)
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-              if (this.selectedLocations.length > 0) {
-                this.clearButton(() => this.selectedLocations.length = 0)
-              }
-              if (this.getAllLocations().length > LOCATION_PREVIEW_COUNT) {
-                this.expandButton(this.locationsExpanded, () => this.locationsExpanded = !this.locationsExpanded)
-              }
-            }
-            .alignItems(VerticalAlign.Center)
-
-            Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-              ForEach(this.getVisibleLocations(), (loc: string) => {
-                this.chip(loc, this.selectedLocations.indexOf(loc) !== -1, () => {
-                  this.toggleValue(this.selectedLocations, loc);
-                });
-              }, (loc: string) => loc);
-            }
+        if (this.locationsExpanded) {
+          Divider().color('#F0F0F0').width('100%')
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Start }) {
+            ForEach(this.getVisibleLocations(), (location: string) => {
+              this.chip(location, this.selectedLocations.includes(location), (): void => this.toggleLocation(location))
+            }, (location: string) => location)
           }
-        }
-
-        // 标签
-        if (this.getAllTags().length > 0) {
-          Column({ space: 8 }) {
-            Row({ space: 8 }) {
-              Text(`标签 (${this.selectedTags.length}/${this.getAllTags().length})`)
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-              if (this.selectedTags.length > 0) {
-                this.clearButton(() => this.selectedTags.length = 0)
-              }
-              if (this.getAllTags().length > TAG_PREVIEW_COUNT) {
-                this.expandButton(this.tagsExpanded, () => this.tagsExpanded = !this.tagsExpanded)
-              }
-            }
-            .alignItems(VerticalAlign.Center)
-
-            Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-              ForEach(this.getVisibleTags(), (tag: string) => {
-                this.chip(tag, this.selectedTags.indexOf(tag) !== -1, () => {
-                  this.toggleValue(this.selectedTags, tag);
-                });
-              }, (tag: string) => tag);
-            }
-            if (!this.tagsExpanded && this.getAllTags().length > TAG_PREVIEW_COUNT) {
-              Text(`已隐藏 ${this.getAllTags().length - TAG_PREVIEW_COUNT} 个标签，点击“更多”展开`)
-                .fontSize(11)
-                .fontColor('#6B7280')
-                .margin({ top: 4 })
-            }
-          }
-        }
-      } else {
-        // 折叠摘要
-        if (this.selectedCategory !== null || this.selectedTags.length > 0 || this.selectedLocations.length > 0) {
-          Column({ space: 8 }) {
-            Text('当前已选筛选')
-              .fontSize(13)
-              .fontColor('#374151')
-              .fontWeight(FontWeight.Medium)
-
-            Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-              // 类别
-              if (this.selectedCategory !== null) {
-                this.chip(this.getCategoryDisplay(this.selectedCategory), true, () => {
-                  this.selectedCategory = null;
-                });
-              }
-              // 标签
-              ForEach(this.selectedTags.slice(0, 5), (t: string) => {
-                this.chip(t, true, () => {
-                  this.toggleValue(this.selectedTags, t);
-                });
-              }, (t: string) => t);
-              if (this.selectedTags.length > 5) {
-                this.summaryBadge(`+${this.selectedTags.length - 5}`)
-              }
-
-              // 地点
-              ForEach(this.selectedLocations.slice(0, 3), (l: string) => {
-                this.chip(l, true, () => {
-                  this.toggleValue(this.selectedLocations, l);
-                });
-              }, (l: string) => l);
-              if (this.selectedLocations.length > 3) {
-                this.summaryBadge(`+${this.selectedLocations.length - 3}`)
-              }
-
-              // 清除按钮
-              this.clearAllButton(() => {
-                this.selectedCategory = null;
-                this.selectedTags.length = 0;
-                this.selectedLocations.length = 0;
-              })
-            }
-          }
+          .width('100%')
+          .padding(12)
         }
       }
+      .padding({ left: 16, right: 16 })
+      .borderRadius(12)
+      .backgroundColor(Color.White)
+      .width('100%')
+      .animation({ duration: 200 })
+
+      // 标签筛选
+      Column() {
+        Row() {
+          Column() {
+            Text('标签')
+              .fontSize(14)
+              .fontWeight(500)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          this.expandButton(this.tagsExpanded, () => this.tagsExpanded = !this.tagsExpanded)
+        }
+        .padding({ top: 12, bottom: 12 })
+        .width('100%')
+
+        if (this.tagsExpanded) {
+          Divider().color('#F0F0F0').width('100%')
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Start }) {
+            ForEach(this.getVisibleTags(), (tag: string) => {
+              this.chip(tag, this.selectedTags.includes(tag), (): void => this.toggleTag(tag))
+            }, (tag: string) => tag)
+          }
+          .width('100%')
+          .padding(12)
+        }
+      }
+      .padding({ left: 16, right: 16 })
+      .borderRadius(12)
+      .backgroundColor(Color.White)
+      .width('100%')
+      .animation({ duration: 200 })
     }
     .padding(16)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(12)
-    .shadow({ radius: 6, color: '#00000014', offsetX: 0, offsetY: 1 })
-    .animation({ duration: 200, curve: Curve.EaseInOut })
+    .backgroundColor('#F7F7F7')
   }
 
   // ==== Helpers ====
+  private toggleTag(tag: string): void {
+    this.toggleValue(this.selectedTags, tag);
+  }
+
+  private toggleLocation(location: string): void {
+    this.toggleValue(this.selectedLocations, location);
+  }
+
   private toggleValue(target: Array<string>, value: string) {
     const idx = target.indexOf(value);
     if (idx !== -1) {

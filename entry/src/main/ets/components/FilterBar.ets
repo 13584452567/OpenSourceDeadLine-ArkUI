@@ -107,8 +107,7 @@ export struct FilterBar {
 
       // 收藏和清除
       Column() {
-        // 全宽收藏开关按钮
-        Button(this.showOnlyFavorites ? '仅显示收藏（已启用）' : '只显示收藏')
+        Button(this.showOnlyFavorites ? '仅显示收藏' : '仅显示收藏')
           .type(ButtonType.Capsule)
           .width('100%')
           .fontSize(14)

@@ -161,7 +161,7 @@ struct Index {
         } else {
           // Optional skeleton placeholders during fade-in
           if (this.contentOpacity < 1) {
-            ForEach([0, 1, 2, 3], (i: number) => {
+            ForEach([0, 1, 2, 3], (_: number) => {
               ListItem() {
                 Column() {
                   Row() {
@@ -638,5 +638,7 @@ struct Index {
     })
     .backgroundColor('#FFFFFF')
     .borderRadius(16)
+    .margin({ left: 16, right: 16, top: 8, bottom: 4 })
+    .alignItems(HorizontalAlign.Center)
   }
 }

@@ -8,7 +8,6 @@ import { DeadlineItem, FlatEvent, EventData, TimelineEvent, CategoryType } from 
 import util from '@ohos.util';
 import { registerActionHandlers, ActionHandlers } from '../common/store/ActionBus';
 
-// DataSource interfaces for LazyForEach virtualization
 interface DataChangeListener { onDataReloaded?(): void; }
 
 interface IDataSource {
@@ -74,6 +73,7 @@ const FAVORITE_STORAGE_NAME: string = 'oseddl_preferences';
 struct Index {
   @State items: Array<DeadlineItem> = [];
   @State loading: boolean = true;
+  @State nowTick: number = Date.now();
   @State selectedCategory: string | null = null;
   @State selectedTags: Array<string> = [];
   @State selectedLocations: Array<string> = [];
@@ -83,6 +83,7 @@ struct Index {
   @State lastUpdated: string = '';
   @State loadError: string = '';
   @State contentOpacity: number = 0;
+  private tickId: number | undefined = undefined;
   private abilityContext?: common.UIAbilityContext;
   private preferences?: dataPreferences.Preferences;
   private ds: FlatEventDataSource =
@@ -90,6 +91,18 @@ struct Index {
 
   aboutToAppear() {
     this.initialize();
+    if (this.tickId === undefined) {
+      this.tickId = setInterval(() => {
+        this.nowTick = Date.now();
+      }, 1000);
+    }
+  }
+
+  aboutToDisappear() {
+    if (this.tickId !== undefined) {
+      clearInterval(this.tickId);
+      this.tickId = undefined;
+    }
   }
 
   private async initialize(): Promise<void> {
@@ -143,13 +156,12 @@ struct Index {
           });
         }
 
-        // Loading banner while refreshing
         if (this.loading) {
           ListItem() {
             this.renderLoadingBanner();
           }
         }
-        // Empty states / filtered empty
+
         if (this.items.length === 0) {
           ListItem() {
             this.renderEmptyState();
@@ -159,7 +171,6 @@ struct Index {
             this.renderFilteredEmpty();
           }
         } else {
-          // Optional skeleton placeholders during fade-in
           if (this.contentOpacity < 1) {
             ForEach([0, 1, 2, 3], (_: number) => {
               ListItem() {
@@ -195,15 +206,13 @@ struct Index {
               }
             }, (_: number) => `${_}`)
           }
-          // Virtualized event items
           LazyForEach(this.ds, (flat: FlatEvent) => {
             ListItem() {
-              EventCard({ item: flat.item, event: flat.event, isFavorited: this.isFavorite(flat.event.id) })
+              EventCard({ item: flat.item, event: flat.event, isFavorited: this.isFavorite(flat.event.id), nowTick: this.nowTick })
                 .opacity(this.contentOpacity)
             }
           }, (flat: FlatEvent) => flat.event.id)
         }
-        // Footer
         ListItem() {
           this.renderFooter();
         }
@@ -356,7 +365,8 @@ struct Index {
       this.selectedLocations.join(','),
       this.searchQuery.trim().toLowerCase(),
       this.showOnlyFavorites ? '1' : '0',
-      this.favorites.join(',')
+      this.favorites.join(','),
+      String(this.nowTick)
     ].join('#');
   }
 
@@ -545,7 +555,7 @@ struct Index {
   @Builder
   private renderFooter() {
     Column({ space: 6 }) {
-      Text('使用 HarmonyOS NEXT 构建 · 华科开放原子开源俱乐部维护')
+      Text('华科开放原子开源俱乐部维护')
         .fontSize(12)
         .fontColor('#4B5563')
         .textAlign(TextAlign.Center);

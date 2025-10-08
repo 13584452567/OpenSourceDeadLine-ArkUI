@@ -20,7 +20,6 @@ export struct CountdownTimer {
   }
 
   aboutToReuse() {
-    // 当组件被复用（列表复用场景）时重新校准
     this.start();
   }
 
@@ -51,21 +50,16 @@ export struct CountdownTimer {
   }
 
   private start() {
-    // ensure we don't double-subscribe
     this.stop();
     this.prevDeadline = this.deadline;
     this.deadlineTs = new Date(this.deadline).getTime();
-    // compute initial value once
     this.updateTime();
-    // subscribe to shared 1s clock
     this.tickId = subscribeTick(() => {
-      // if deadline prop changed externally, update timestamp
       if (this.deadline !== this.prevDeadline) {
         this.prevDeadline = this.deadline;
         this.deadlineTs = new Date(this.deadline).getTime();
       }
       this.updateTime();
-      // if countdown finished, unsubscribe
       if (!this.timeLeft) {
         this.stop();
       }

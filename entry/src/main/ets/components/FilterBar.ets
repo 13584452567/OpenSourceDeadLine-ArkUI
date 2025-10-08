@@ -18,7 +18,6 @@ export struct FilterBar {
   @State private localSelectedCategory: string | null | undefined = undefined;
   private categorySyncTimer: number | undefined = undefined;
 
-  // ==== Event Handlers ====
   onClearAllFilters(): void {
     this.searchQuery = '';
     this.selectedCategory = null;
@@ -48,13 +47,9 @@ export struct FilterBar {
 
   onToggleCategory(category: string): void {
     const newVal: string | null = this.selectedCategory === category ? null : category;
-    // update local first to trigger immediate UI change
     this.localSelectedCategory = newVal;
-    // then sync to parent/link
     this.selectedCategory = newVal;
-    // clear any pending timer
     if (this.categorySyncTimer !== undefined) { clearTimeout(this.categorySyncTimer); }
-    // after short delay clear local override so parent-controlled updates show through
     this.categorySyncTimer = setTimeout(() => {
       this.localSelectedCategory = undefined;
       this.categorySyncTimer = undefined;
@@ -118,7 +113,6 @@ export struct FilterBar {
           .border({ width: 1, color: this.showOnlyFavorites ? '#007AFF' : '#E5E7EB' })
           .onClick(() => { this.showOnlyFavorites = !this.showOnlyFavorites; });
 
-        // 清除全部按钮位于收藏按钮下方，只有在有筛选激活时显示
         if (this.isAnyFilterActive) {
           Row() {
             Blank().layoutWeight(1)
@@ -176,11 +170,9 @@ export struct FilterBar {
       .fontSize(12)
       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
       .borderRadius(20)
-      // Match inactive appearance with other buttons and switch to blue when active
       .backgroundColor(active ? '#007AFF' : '#F3F4F6')
       .fontColor(active ? '#FFFFFF' : '#111827')
       .border({ width: 1, color: active ? '#007AFF' : '#E5E7EB' })
-      // subtle press-scale and animation for a consistent feel
       .scale({ x: (this.pressedLabel === label) ? 0.95 : 1, y: (this.pressedLabel === label) ? 0.95 : 1 })
       .animation({ duration: 150, curve: Curve.EaseInOut })
       .onTouch((event: TouchEvent) => {
@@ -210,7 +202,6 @@ export struct FilterBar {
   private expandButton(label: string, expanded: boolean, onClick: () => void) {
     Button(expanded ? `收起${label}` : `更多${label}`)
       .type(ButtonType.Capsule)
-      // Match the visual footprint and touch target of the "仅显示收藏" button
       .width('100%')
       .fontSize(14)
       .padding({ left: 12, right: 12, top: 10, bottom: 10 })
@@ -226,7 +217,6 @@ export struct FilterBar {
     Button(label)
       .type(ButtonType.Capsule)
       .fontSize(14)
-      // Use the same touch target and inactive appearance as the "仅显示收藏" button
       .padding({ left: 12, right: 12, top: 10, bottom: 10 })
       .borderRadius(16)
       .width('100%')

@@ -3,11 +3,11 @@ import { common, Want } from '@kit.AbilityKit';
 @Component
 export struct AppHeader {
   build() {
-    Column({ space: 12 }) { // 与内容卡片保持更宽松一致的竖向间距
+    Column({ space: 12 }) {
       // 标题行（点击打开仓库）
       Row() {
         Text('开源活动截止日期')
-          .fontSize(20) // 与 EventCard 标题统一
+          .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor('#1F2937')
           .lineHeight(24)
@@ -15,7 +15,7 @@ export struct AppHeader {
       }
       // 副标题与说明
       Text('聚合开源会议、竞赛与活动关键时间点，帮助及时提交与参与。')
-        .fontSize(14) // 与 EventCard 描述一致
+        .fontSize(14)
         .fontColor('#6B7280')
         .lineHeight(20)
         .maxLines(3)
@@ -25,10 +25,10 @@ export struct AppHeader {
         .fontColor('#6B7280')
         .lineHeight(16)
     }
-    .padding(20) // 统一外边距
+    .padding(20)
     .backgroundColor('#FFFFFF')
-    .borderRadius(16) // 与 EventCard 一致
-    .shadow({ radius: 8, color: '#0000000F', offsetX: 0, offsetY: 2 }) // 阴影统一
+    .borderRadius(16)
+    .shadow({ radius: 8, color: '#0000000F', offsetX: 0, offsetY: 2 })
   }
 
   private openRepo() {
